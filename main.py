@@ -101,8 +101,9 @@ class DarkAgesPresenter:
 
             if keysym == 0:  # Handle special characters
                 if char == "\n":
-                    keysym = Xlib.XK.XK_Return
+                    self.send_keycode(self.enter_code)
                     character_count = 0  # this will trigger another return
+                    continue
                 elif char == "\t":
                     keysym = Xlib.XK.XK_Tab
                 elif char == " ":
@@ -123,6 +124,10 @@ class DarkAgesPresenter:
                     keysym = Xlib.XK.XK_colon
                 elif char == ";":
                     keysym = Xlib.XK.XK_semicolon
+                elif char == "<":
+                    keysym = Xlib.XK.XK_less
+                elif char == ">":
+                    keysym = Xlib.XK.XK_greater
                 else:
                     continue  # Skip unsupported characters
 
@@ -134,8 +139,8 @@ class DarkAgesPresenter:
             # send line and start a new one
             elif character_count >= 44 and char == " ":
                 self.send_keycode(self.enter_code)
-                self.send_keycode(self.enter_code)
                 character_count = 0
+                continue
 
             if keycode != 0:
                 # Send key press and release, with shift if needed
@@ -251,7 +256,7 @@ class DarkAgesPresenter:
                 print(f"{i}...")
                 time.sleep(1)
 
-            print("GO!")
+            print("Starting the reading...")
 
             # Send text
             success = self.send_text_to_window(text_content)
@@ -276,10 +281,10 @@ def main():
     parser = argparse.ArgumentParser(
         description="Send keystrokes to Dark Ages window from text file"
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "text_file", help="Path to text file containing keystrokes to send"
     )
-    parser.add_argument(
+    _ = parser.add_argument(
         "--delay",
         "-d",
         type=float,
@@ -290,7 +295,7 @@ def main():
     args = parser.parse_args()
 
     presenter = DarkAgesPresenter(args.text_file, args.delay)
-    presenter.run()
+    _ = presenter.run()
 
 
 if __name__ == "__main__":
