@@ -1,0 +1,5 @@
+Hello Dark Ages!
+This is a test message.
+It will be typed character by character.
+
+Press spacebar to pause/resume.
