@@ -1,6 +1,6 @@
 # Dark Ages Presenter
 
-A Python application that automatically sends keystrokes from a text file to X.org windows containing "dark ages" in their class name.
+A Python application that automatically sends keystrokes from a text file to X.org windows containing "dark ages" in their window name.
 
 ## Features
 
@@ -26,13 +26,13 @@ source venv/bin/activate
 ## Usage
 
 ```bash
-python main.py <text_file> [--delay <seconds>]
+python main.py <text_file> [--delay <1-10>]
 ```
 
 ### Arguments
 
 - `text_file`: Path to the text file containing content to type
-- `--delay`: Delay between keystrokes in seconds (default: 0.1)
+- `--delay`: Delay between keystrokes 1-10 (default: 5)
 
 ### Examples
 
@@ -41,7 +41,7 @@ python main.py <text_file> [--delay <seconds>]
 python main.py example.txt
 
 # With custom delay
-python main.py my_script.txt --delay 0.05
+python main.py my_script.txt --delay 10
 ```
 
 ## Controls
@@ -63,7 +63,7 @@ python main.py my_script.txt --delay 0.05
 
 This project provides:
 
-1. **Window Detection**: Automatically finds windows with "dark ages" in the class name
+1. **Window Detection**: Automatically finds windows with "dark ages" in the window name
 2. **Text File Input**: Reads any UTF-8 text file specified via command line
 3. **Keystroke Simulation**: Sends characters one by one to the target window
 4. **Pause/Resume**: Press spacebar to pause/resume typing

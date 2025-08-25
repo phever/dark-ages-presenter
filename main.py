@@ -294,27 +294,27 @@ def main():
 
     args = parser.parse_args()
 
-    delay = 0.2  # 5
+    delay = 0.18  # 5
     if args.delay == 1:
-        delay = 0.5
+        delay = 0.1
     elif args.delay == 2:
-        delay = 0.4
+        delay = 0.12
     elif args.delay == 3:
-        delay = 0.3
+        delay = 0.14
     elif args.delay == 4:
-        delay = 0.25
+        delay = 0.16
     elif args.delay == 6:
-        delay = 1.8
+        delay = 0.2
     elif args.delay == 7:
-        delay = 1.6
+        delay = 0.225
     elif args.delay == 8:
-        delay = 1.4
+        delay = 0.25
     elif args.delay == 9:
-        delay = 1.2
+        delay = 0.275
     elif args.delay == 10:
-        delay = 1.0
+        delay = 0.3
     else:
-        print("Using default delay of 0.2 seconds between keystrokes")
+        print("Using default delay of 0.18 seconds between keystrokes")
 
     presenter = DarkAgesPresenter(args.text_file, delay)
     _ = presenter.run()
