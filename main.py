@@ -23,6 +23,8 @@ class DarkAgesPresenter:
         self.running: bool = True
         self.display: Xlib.display.Display = Xlib.display.Display()
         self.target_window: Window | None = None
+        self.shift_code: int = self.display.keysym_to_keycode(Xlib.XK.XK_Shift_L)
+        self.enter_code: int = self.display.keysym_to_keycode(Xlib.XK.XK_KP_Enter)
 
         # Setup keyboard listener for spacebar pause
         self.listener: Listener = Listener(on_press=self._on_key_press)
@@ -76,6 +78,7 @@ class DarkAgesPresenter:
         self.target_window.set_input_focus(Xlib.X.RevertToParent, Xlib.X.CurrentTime)
         self.display.sync()
 
+        character_count: int = 0
         # Send each character
         for char in text:
             if not self.running:
@@ -89,56 +92,133 @@ class DarkAgesPresenter:
                 break
 
             # Convert character to keysym and send
-            keysym = Xlib.XK.string_to_keysym(char)
+            shift = False
+            if char.isupper():
+                shift = True
+                keysym = Xlib.XK.string_to_keysym(char.lower())
+            else:
+                keysym = Xlib.XK.string_to_keysym(char)
+
             if keysym == 0:  # Handle special characters
                 if char == "\n":
                     keysym = Xlib.XK.XK_Return
+                    character_count = 0  # this will trigger another return
                 elif char == "\t":
                     keysym = Xlib.XK.XK_Tab
                 elif char == " ":
                     keysym = Xlib.XK.XK_space
+                elif char == "/":
+                    keysym = Xlib.XK.XK_slash
+                elif char == "'":
+                    keysym = Xlib.XK.XK_apostrophe
+                elif char == ".":
+                    keysym = Xlib.XK.XK_period
+                elif char == ",":
+                    keysym = Xlib.XK.XK_comma
+                elif char == "—":
+                    keysym = Xlib.XK.XK_minus
+                elif char == "-":
+                    keysym = Xlib.XK.XK_minus
+                elif char == ":":
+                    keysym = Xlib.XK.XK_colon
+                elif char == ";":
+                    keysym = Xlib.XK.XK_semicolon
                 else:
                     continue  # Skip unsupported characters
 
             keycode = self.display.keysym_to_keycode(keysym)
+
+            # start new line
+            if character_count == 0:
+                self.send_keycode(self.display.keysym_to_keycode(Xlib.XK.XK_Return))
+            # send line and start a new one
+            elif character_count >= 44 and char == " ":
+                self.send_keycode(self.enter_code)
+                self.send_keycode(self.enter_code)
+                character_count = 0
+
             if keycode != 0:
-                # Send key press and release
-                self.target_window.send_event(
-                    event.KeyPress(
-                        time=int(time.time()),
-                        root=self.display.screen().root,
-                        window=self.target_window,
-                        same_screen=1,
-                        child=Xlib.X.NONE,
-                        root_x=0,
-                        root_y=0,
-                        event_x=0,
-                        event_y=0,
-                        state=0,
-                        detail=keycode,
-                    )
-                )
-
-                self.target_window.send_event(
-                    event.KeyRelease(
-                        time=int(time.time()),
-                        root=self.display.screen().root,
-                        window=self.target_window,
-                        same_screen=1,
-                        child=Xlib.X.NONE,
-                        root_x=0,
-                        root_y=0,
-                        event_x=0,
-                        event_y=0,
-                        state=0,
-                        detail=keycode,
-                    )
-                )
-
-                self.display.sync()
-                time.sleep(self.delay)
-
+                # Send key press and release, with shift if needed
+                if shift:
+                    self.send_keycode(keycode, True)
+                else:
+                    self.send_keycode(keycode)
+            character_count += 1
         return True
+
+    def send_keycode(self, keycode: int, is_upper: bool = False):
+        if not self.target_window:
+            print(f"BIG ERROR SENDING KEYCODE {keycode}")
+            return
+
+        if is_upper:
+            self.target_window.send_event(
+                event.KeyPress(
+                    time=int(time.time()),
+                    root=self.display.screen().root,
+                    window=self.target_window,
+                    same_screen=1,
+                    child=Xlib.X.NONE,
+                    root_x=0,
+                    root_y=0,
+                    event_x=0,
+                    event_y=0,
+                    state=0,
+                    detail=self.shift_code,
+                )
+            )
+
+        self.target_window.send_event(
+            event.KeyPress(
+                time=int(time.time()),
+                root=self.display.screen().root,
+                window=self.target_window,
+                same_screen=1,
+                child=Xlib.X.NONE,
+                root_x=0,
+                root_y=0,
+                event_x=0,
+                event_y=0,
+                state=0,
+                detail=keycode,
+            )
+        )
+
+        self.target_window.send_event(
+            event.KeyRelease(
+                time=int(time.time()),
+                root=self.display.screen().root,
+                window=self.target_window,
+                same_screen=1,
+                child=Xlib.X.NONE,
+                root_x=0,
+                root_y=0,
+                event_x=0,
+                event_y=0,
+                state=0,
+                detail=keycode,
+            )
+        )
+
+        if is_upper:
+            self.target_window.send_event(
+                event.KeyRelease(
+                    time=int(time.time()),
+                    root=self.display.screen().root,
+                    window=self.target_window,
+                    same_screen=1,
+                    child=Xlib.X.NONE,
+                    root_x=0,
+                    root_y=0,
+                    event_x=0,
+                    event_y=0,
+                    state=0,
+                    detail=self.shift_code,
+                )
+            )
+
+        self.display.sync()
+        time.sleep(self.delay)
 
     def run(self):
         """Main execution loop"""

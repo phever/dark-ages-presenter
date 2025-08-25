@@ -4,7 +4,7 @@ A Python application that automatically sends keystrokes from a text file to X.o
 
 ## Features
 
-- Automatically finds Dark Ages windows by class name
+- Automatically finds Dark Ages windows by window name
 - Sends text character by character with configurable delay
 - Pause/resume functionality with spacebar
 - Command-line interface
