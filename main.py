@@ -29,7 +29,7 @@ class DarkAgesPresenter:
         # Setup keyboard listener for spacebar pause
         self.listener: Listener = Listener(on_press=self._on_key_press)
 
-    def find_dark_ages_window(self):
+    def find_dark_ages_window(self) -> Window | None:
         """Find window with name 'Darkages'"""
         root: Window = self.display.screen().root  # pyright: ignore[reportAny]
 
@@ -60,7 +60,7 @@ class DarkAgesPresenter:
 
         return search_windows(root)
 
-    def _on_key_press(self, key: KeyCode | Key | None):
+    def _on_key_press(self, key: KeyCode | Key | None) -> None:
         """Handle spacebar press for pause/unpause"""
         if key == Key.space:
             self.paused = not self.paused
@@ -69,7 +69,7 @@ class DarkAgesPresenter:
                 f"\n[{status}] Press spacebar to {'resume' if self.paused else 'pause'}"
             )
 
-    def send_text_to_window(self, text: str):
+    def send_text_to_window(self, text: str) -> bool:
         """Send text to the target window"""
         if not self.target_window:
             return False
@@ -86,7 +86,7 @@ class DarkAgesPresenter:
 
             # Wait while paused
             while self.paused and self.running:
-                time.sleep(0.1)
+                time.sleep(0.25)
 
             if not self.running:
                 break
@@ -130,7 +130,7 @@ class DarkAgesPresenter:
             character_count += 1
         return True
 
-    def send_keycode(self, keycode: int, is_upper: bool = False):
+    def send_keycode(self, keycode: int, is_upper: bool = False) -> None:
         send_keycode(
             self.target_window,
             self.display,
@@ -140,7 +140,7 @@ class DarkAgesPresenter:
             is_upper,
         )
 
-    def run(self):
+    def run(self) -> bool:
         """Main execution loop"""
         # Start keyboard listener
         self.listener.start()
@@ -192,7 +192,7 @@ class DarkAgesPresenter:
         return True
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Send keystrokes to Dark Ages window from text file"
     )
