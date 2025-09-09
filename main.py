@@ -6,13 +6,13 @@ Dark Ages Presenter - Automated keystroke sender for Dark Ages windows
 import argparse
 import time
 from pathlib import Path
-
 import Xlib
 import Xlib.display
 import Xlib.X
-from Xlib.protocol import event
+from pynput.keyboard import Key, KeyCode, Listener
+from keysym_map import get_keysym_for_char
+from send_keycode import send_keycode
 from Xlib.xobject.drawable import Window
-from pynput.keyboard import Key, Listener
 
 
 class DarkAgesPresenter:
@@ -31,7 +31,7 @@ class DarkAgesPresenter:
 
     def find_dark_ages_window(self):
         """Find window with name 'Darkages'"""
-        root = self.display.screen().root
+        root: Window = self.display.screen().root  # pyright: ignore[reportAny]
 
         def check_window(window: Window) -> Window | None:
             try:
@@ -49,7 +49,7 @@ class DarkAgesPresenter:
                 return result
 
             try:
-                children = window.query_tree().children
+                children: list[Window] = window.query_tree().children  # pyright: ignore[reportAny]
                 for child in children:
                     result = search_windows(child)
                     if result:
@@ -60,7 +60,7 @@ class DarkAgesPresenter:
 
         return search_windows(root)
 
-    def _on_key_press(self, key):
+    def _on_key_press(self, key: KeyCode | Key | None):
         """Handle spacebar press for pause/unpause"""
         if key == Key.space:
             self.paused = not self.paused
@@ -78,7 +78,7 @@ class DarkAgesPresenter:
         self.target_window.set_input_focus(Xlib.X.RevertToParent, Xlib.X.CurrentTime)
         self.display.sync()
 
-        character_count: int = 0
+        character_count = 0
         # Send each character
         for char in text:
             if not self.running:
@@ -92,6 +92,7 @@ class DarkAgesPresenter:
                 break
 
             # Convert character to keysym and send
+            # convert to lowercase for keysym lookup
             shift = False
             if char.isupper():
                 shift = True
@@ -99,43 +100,21 @@ class DarkAgesPresenter:
             else:
                 keysym = Xlib.XK.string_to_keysym(char)
 
-            if keysym == 0:  # Handle special characters
-                if char == "\n":
-                    self.send_keycode(self.enter_code)
-                    character_count = 0  # this will trigger another return
-                    continue
-                elif char == "\t":
-                    keysym = Xlib.XK.XK_Tab
-                elif char == " ":
-                    keysym = Xlib.XK.XK_space
-                elif char == "/":
-                    keysym = Xlib.XK.XK_slash
-                elif char == "'":
-                    keysym = Xlib.XK.XK_apostrophe
-                elif char == ".":
-                    keysym = Xlib.XK.XK_period
-                elif char == ",":
-                    keysym = Xlib.XK.XK_comma
-                elif char == "—":
-                    keysym = Xlib.XK.XK_minus
-                elif char == "-":
-                    keysym = Xlib.XK.XK_minus
-                elif char == ":":
-                    keysym = Xlib.XK.XK_colon
-                elif char == ";":
-                    keysym = Xlib.XK.XK_semicolon
-                elif char == "<":
-                    keysym = Xlib.XK.XK_less
-                elif char == ">":
-                    keysym = Xlib.XK.XK_greater
-                else:
+            # Handle special characters
+            if keysym == 0:
+                keysym = get_keysym_for_char(char)
+                if keysym is None:
                     continue  # Skip unsupported characters
+                if keysym == Xlib.XK.XK_Return:
+                    self.send_keycode(self.enter_code)
+                    character_count = 0
+                    continue
 
             keycode = self.display.keysym_to_keycode(keysym)
 
             # start new line
             if character_count == 0:
-                self.send_keycode(self.display.keysym_to_keycode(Xlib.XK.XK_Return))
+                self.send_keycode(self.enter_code)
             # send line and start a new one
             elif character_count >= 44 and char == " ":
                 self.send_keycode(self.enter_code)
@@ -152,78 +131,14 @@ class DarkAgesPresenter:
         return True
 
     def send_keycode(self, keycode: int, is_upper: bool = False):
-        if not self.target_window:
-            print(f"BIG ERROR SENDING KEYCODE {keycode}")
-            return
-
-        if is_upper:
-            self.target_window.send_event(
-                event.KeyPress(
-                    time=int(time.time()),
-                    root=self.display.screen().root,
-                    window=self.target_window,
-                    same_screen=1,
-                    child=Xlib.X.NONE,
-                    root_x=0,
-                    root_y=0,
-                    event_x=0,
-                    event_y=0,
-                    state=0,
-                    detail=self.shift_code,
-                )
-            )
-
-        self.target_window.send_event(
-            event.KeyPress(
-                time=int(time.time()),
-                root=self.display.screen().root,
-                window=self.target_window,
-                same_screen=1,
-                child=Xlib.X.NONE,
-                root_x=0,
-                root_y=0,
-                event_x=0,
-                event_y=0,
-                state=0,
-                detail=keycode,
-            )
+        send_keycode(
+            self.target_window,
+            self.display,
+            keycode,
+            self.shift_code,
+            self.delay,
+            is_upper,
         )
-
-        self.target_window.send_event(
-            event.KeyRelease(
-                time=int(time.time()),
-                root=self.display.screen().root,
-                window=self.target_window,
-                same_screen=1,
-                child=Xlib.X.NONE,
-                root_x=0,
-                root_y=0,
-                event_x=0,
-                event_y=0,
-                state=0,
-                detail=keycode,
-            )
-        )
-
-        if is_upper:
-            self.target_window.send_event(
-                event.KeyRelease(
-                    time=int(time.time()),
-                    root=self.display.screen().root,
-                    window=self.target_window,
-                    same_screen=1,
-                    child=Xlib.X.NONE,
-                    root_x=0,
-                    root_y=0,
-                    event_x=0,
-                    event_y=0,
-                    state=0,
-                    detail=self.shift_code,
-                )
-            )
-
-        self.display.sync()
-        time.sleep(self.delay)
 
     def run(self):
         """Main execution loop"""
@@ -250,7 +165,7 @@ class DarkAgesPresenter:
                 text_content = f.read()
 
             print(f"Loaded {len(text_content)} characters from {self.text_file}")
-            print("Starting in 3 seconds... Press spacebar to pause/resume")
+            print("Starting in 3 seconds... Press CTRL+C to quit")
 
             for i in range(3, 0, -1):
                 print(f"{i}...")
@@ -294,29 +209,20 @@ def main():
 
     args = parser.parse_args()
 
-    delay = 0.18  # 5
-    if args.delay == 1:
-        delay = 0.1
-    elif args.delay == 2:
-        delay = 0.12
-    elif args.delay == 3:
-        delay = 0.14
-    elif args.delay == 4:
-        delay = 0.16
-    elif args.delay == 6:
-        delay = 0.2
-    elif args.delay == 7:
-        delay = 0.225
-    elif args.delay == 8:
-        delay = 0.25
-    elif args.delay == 9:
-        delay = 0.275
-    elif args.delay == 10:
-        delay = 0.3
+    # Delay mapping: index 0 is unused, 1-10 are valid
+    delay_options = [0, 0.1, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.175, 0.185, 0.2]
+    delay = delay_options[5]  # default 0.14 seconds
+    if not isinstance(args.delay, int):  # pyright: ignore[reportAny]
+        print(
+            f"Invalid delay value, using default of {delay} seconds between keystrokes"
+        )
+    if 1 <= args.delay <= 10:
+        delay = delay_options[args.delay]
     else:
-        print("Using default delay of 0.18 seconds between keystrokes")
-
-    presenter = DarkAgesPresenter(args.text_file, delay)
+        print(
+            f"Invalid delay value, using default of {delay} seconds between keystrokes"
+        )
+    presenter = DarkAgesPresenter(args.text_file, delay)  # pyright: ignore[reportAny]
     _ = presenter.run()
 
 
