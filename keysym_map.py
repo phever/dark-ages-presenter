@@ -19,6 +19,16 @@ def get_keysym_for_char(char: str):
         ">": XK.XK_greater,
         "&": XK.XK_ampersand,
         '"': XK.XK_quotedbl,
+        "?": XK.XK_question,
+        "[": XK.XK_bracketleft,
+        "]": XK.XK_bracketright,
+        "@": XK.XK_at,
+        "$": XK.XK_dollar,
+        "%": XK.XK_percent,
+        "*": XK.XK_asterisk,
+        "!": XK.XK_exclam,
+        ")": XK.XK_0,  # these break in darkages, use number + shift
+        "(": XK.XK_9,
     }
     if char in special_map:
         return special_map[char]

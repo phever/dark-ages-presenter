@@ -14,11 +14,15 @@ from keysym_map import get_keysym_for_char
 from send_keycode import send_keycode
 from Xlib.xobject.drawable import Window
 
+SHIFT_CHARS = set('~!@#$%^&*_+{}()|:"<>?')
+LINE_SIZE = 44
+
 
 class DarkAgesPresenter:
-    def __init__(self, text_file: str, delay: float = 0.1):
+    def __init__(self, text_file: str, delay: float = 0.1, verbose: bool = False):
         self.text_file: Path = Path(text_file)
         self.delay: float = delay
+        self.verbose: bool = verbose
         self.paused: bool = False
         self.running: bool = True
         self.display: Xlib.display.Display = Xlib.display.Display()
@@ -26,11 +30,18 @@ class DarkAgesPresenter:
         self.shift_code: int = self.display.keysym_to_keycode(Xlib.XK.XK_Shift_L)
         self.enter_code: int = self.display.keysym_to_keycode(Xlib.XK.XK_KP_Enter)
 
-        # Setup keyboard listener for spacebar pause
+        # Setup keyboard listener for alt pause
         self.listener: Listener = Listener(on_press=self._on_key_press)
 
+    def _on_key_press(self, key: KeyCode | Key | None) -> None:
+        """Handle f2 press for pause/unpause"""
+        if key == Key.f2:
+            self.paused = not self.paused
+            status = "PAUSED" if self.paused else "RESUMED"
+            print(f"\n[{status}] Press F2 to {'resume' if self.paused else 'pause'}")
+
     def find_dark_ages_window(self) -> Window | None:
-        """Find window with name 'Darkages'"""
+        """Find first window with name 'Darkages'. Will not function properly if multiple such windows exist."""
         root: Window = self.display.screen().root  # pyright: ignore[reportAny]
 
         def check_window(window: Window) -> Window | None:
@@ -60,15 +71,6 @@ class DarkAgesPresenter:
 
         return search_windows(root)
 
-    def _on_key_press(self, key: KeyCode | Key | None) -> None:
-        """Handle spacebar press for pause/unpause"""
-        if key == Key.space:
-            self.paused = not self.paused
-            status = "PAUSED" if self.paused else "RESUMED"
-            print(
-                f"\n[{status}] Press spacebar to {'resume' if self.paused else 'pause'}"
-            )
-
     def send_text_to_window(self, text: str) -> bool:
         """Send text to the target window"""
         if not self.target_window:
@@ -81,6 +83,8 @@ class DarkAgesPresenter:
         character_count = 0
         # Send each character
         for char in text:
+            if self.verbose:
+                print("Sending:", repr(char))
             if not self.running:
                 break
 
@@ -94,39 +98,56 @@ class DarkAgesPresenter:
             # Convert character to keysym and send
             # convert to lowercase for keysym lookup
             shift = False
-            if char.isupper():
+            if char.isupper() or char in SHIFT_CHARS:
+                if self.verbose:
+                    print(" (with SHIFT)")
                 shift = True
-                keysym = Xlib.XK.string_to_keysym(char.lower())
-            else:
-                keysym = Xlib.XK.string_to_keysym(char)
 
             # Handle special characters
-            if keysym == 0:
-                keysym = get_keysym_for_char(char)
-                if keysym is None:
+            keysym = get_keysym_for_char(char)
+            if keysym is None:
+                if self.verbose:
+                    print(f"Warning: Unsupported character '{char}'")
+                keysym = Xlib.XK.string_to_keysym(char)
+                if keysym == 0:
+                    if self.verbose:
+                        print(f"Error: Unsupported character '{char}', skipping")
                     continue  # Skip unsupported characters
-                if keysym == Xlib.XK.XK_Return:
+            if keysym == Xlib.XK.XK_Return:
+                # break on newlines
+                if character_count > 0:
+                    if self.verbose:
+                        print(" (ENTER)")
                     self.send_keycode(self.enter_code)
-                    character_count = 0
-                    continue
+                # long pause for multiple newlines
+                else:
+                    if self.verbose:
+                        print(" (LONG PAUSE)")
+                    time.sleep(self.delay * LINE_SIZE / 2)
+                character_count = 0
+                continue
 
             keycode = self.display.keysym_to_keycode(keysym)
-
-            # start new line
+            if self.verbose:
+                print(f" (keycode {keycode})")
+            # 0 is the keysym_to_keycode return value for unsupported characters
+            # start new Dark Ages speech
             if character_count == 0:
+                if self.verbose:
+                    print(" (ENTER)")
                 self.send_keycode(self.enter_code)
-            # send line and start a new one
-            elif character_count >= 44 and char == " ":
+            # send speech line and start a new one
+            elif character_count >= LINE_SIZE and char == " ":
+                if self.verbose:
+                    print(" (ENTER)")
                 self.send_keycode(self.enter_code)
                 character_count = 0
                 continue
 
-            if keycode != 0:
-                # Send key press and release, with shift if needed
-                if shift:
-                    self.send_keycode(keycode, True)
-                else:
-                    self.send_keycode(keycode)
+            # Send key press and release, with shift if needed
+            if self.verbose:
+                print(f" (sending keycode {keycode} with shift={shift})")
+            self.send_keycode(keycode, shift)
             character_count += 1
         return True
 
@@ -165,7 +186,9 @@ class DarkAgesPresenter:
                 text_content = f.read()
 
             print(f"Loaded {len(text_content)} characters from {self.text_file}")
-            print("Starting in 3 seconds... Press CTRL+C to quit")
+            print("Starting in 3 seconds...")
+            print("Press CTRL+C within the terminal window to quit.")
+            print("Or press F2 within Dark Ages to pause.")
 
             for i in range(3, 0, -1):
                 print(f"{i}...")
@@ -177,9 +200,9 @@ class DarkAgesPresenter:
             success = self.send_text_to_window(text_content)
 
             if success:
-                print("\nText sending completed!")
+                print("\nReading completed!")
             else:
-                print("\nText sending interrupted or failed")
+                print("\nReading interrupted or failed")
 
         except KeyboardInterrupt:
             print("\nInterrupted by user")
@@ -200,11 +223,19 @@ def main() -> None:
         "text_file", help="Path to text file containing keystrokes to send"
     )
     _ = parser.add_argument(
-        "--delay",
         "-d",
+        "--delay",
         type=int,
         default=5,
         help="Delay between keystrokes 1-10 (default: 5)",
+    )
+
+    _ = parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Enable verbose output (default: False)",
     )
 
     args = parser.parse_args()
@@ -222,7 +253,7 @@ def main() -> None:
         print(
             f"Invalid delay value, using default of {delay} seconds between keystrokes"
         )
-    presenter = DarkAgesPresenter(args.text_file, delay)  # pyright: ignore[reportAny]
+    presenter = DarkAgesPresenter(args.text_file, delay, args.verbose)  # pyright: ignore[reportAny]
     _ = presenter.run()
 
 
